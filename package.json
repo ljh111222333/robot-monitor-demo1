@@ -17,6 +17,7 @@
     "gsap": "^3.15.0",
     "http": "0.0.1-security",
     "pinia": "^4.0.3",
+    "stats-gl": "^4.2.3",
     "three": "^0.185.1",
     "urdf-loader": "^0.13.1",
     "vue": "^3.5.41",
