@@ -5,17 +5,17 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "server": "node src/services/index.js",
     "build": "vue-tsc -b && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
     "@tresjs/core": "^5.8.3",
-    "cros": "^1.1.0",
+    "cors": "^2.8.6",
     "echarts": "^6.1.0",
     "element-plus": "^2.14.5",
     "express": "^5.2.1",
     "gsap": "^3.15.0",
-    "http": "0.0.1-security",
     "pinia": "^4.0.3",
     "stats-gl": "^4.2.3",
     "three": "^0.185.1",
@@ -28,6 +28,7 @@
     "@types/three": "^0.185.4",
     "@vitejs/plugin-vue": "^6.0.8",
     "@vue/tsconfig": "^0.9.1",
+    "sass": "^1.103.1",
     "typescript": "~6.0.2",
     "vite": "^8.2.2",
     "vue-tsc": "^3.3.11"
