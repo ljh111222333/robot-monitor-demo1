@@ -10,6 +10,8 @@ export default defineConfig(({ mode }) => {
 		base: env.VITE_BASE_URL,
 		plugins: [vue()],
 		server: {
+			// 明确绑定 IPv4，避免 Windows 将 localhost 优先解析到不可用的 IPv6 ::1。
+			host: '127.0.0.1',
 			port: 6600,
 			open: true,
 		},
