@@ -1,23 +1,35 @@
 import * as THREE from 'three';
 import Stats from 'stats-gl';
-import { SceneConfig } from '@/config/Scene';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import useSettingStore from '@/stores/settingStore';
+import { debounce } from 'lodash-es';
 
+export interface SceneOptions {
+	canvasClassName?: string;
+}
 export class Scene {
-	private scene: THREE.Scene;
-	private camera: THREE.PerspectiveCamera;
-	private renderer: THREE.WebGLRenderer;
-	private sceneContainer: HTMLElement;
-	private stats: Stats;
-	public controls: OrbitControls;
+	private readonly scene: THREE.Scene;
+	private readonly camera: THREE.PerspectiveCamera;
+	private readonly renderer: THREE.WebGLRenderer;
+	private readonly sceneContainer: HTMLElement;
+	private readonly stats: Stats;
+	public readonly controls: OrbitControls;
 	private resizeObserver: ResizeObserver | undefined;
+	private settingStore: ReturnType<typeof useSettingStore>;
 
-	constructor(sceneContainer: HTMLElement = window.document.body) {
+	constructor(
+		sceneContainer: HTMLElement,
+		settingStore: ReturnType<typeof useSettingStore>,
+		options: SceneOptions = {},
+	) {
 		this.sceneContainer = sceneContainer;
+		this.settingStore = settingStore;
 
 		// 创建场景
 		this.scene = new THREE.Scene();
-		this.scene.background = new THREE.Color(SceneConfig.background.color);
+		this.scene.background = new THREE.Color(
+			this.settingStore.backgroundConfig.color,
+		);
 
 		const containerWidth = sceneContainer.clientWidth;
 		const containerHeight = sceneContainer.clientHeight;
@@ -28,7 +40,7 @@ export class Scene {
 			0.5,
 			500,
 		);
-		this.camera.position.copy(SceneConfig.camera.defaultPos);
+		this.camera.position.copy(this.settingStore.cameraConfig.defaultPos);
 
 		// 创建渲染器
 		this.renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -36,12 +48,15 @@ export class Scene {
 		this.renderer.setPixelRatio(window.devicePixelRatio);
 		this.renderer.shadowMap.enabled = true;
 		this.renderer.shadowMap.type = THREE.PCFShadowMap;
+		this.renderer.domElement.classList.add(
+			options.canvasClassName || 'sceneCanvans',
+		);
 		// 添加到容器
 		this.sceneContainer.appendChild(this.renderer.domElement);
 
 		// 创建camera控制器
 		this.controls = new OrbitControls(this.camera, this.renderer.domElement);
-		this.controls.target.copy(SceneConfig.controls.defaultTarget);
+		this.controls.target.copy(this.settingStore.controlsConfig.defaultTarget);
 		this.controls.enablePan = false;
 		this.controls.enableDamping = true;
 		this.controls.dampingFactor = 0.05;
@@ -125,16 +140,17 @@ export class Scene {
 
 		this.resizeObserver = new ResizeObserver(([entry]) => {
 			const { width, height } = entry.contentRect;
-			this.resize(width, height);
+			this.debounceResize(width, height);
 		});
 
 		this.resizeObserver.observe(this.sceneContainer);
 	}
-	private resize(width: number, height: number): void {
+	private debounceResize = debounce((width: number, height: number) => {
+		console.log('debounceResize is trigger', { width, height });
 		this.camera.aspect = width / height;
 		this.camera.updateProjectionMatrix();
-		this.renderer.setSize(width, height, false);
-	}
+		this.renderer.setSize(width, height);
+	}, 300);
 
 	// 设置视觉中心
 	setCenter({
@@ -162,5 +178,89 @@ export class Scene {
 
 	remove(object: THREE.Object3D): void {
 		this.scene.remove(object);
+	}
+
+	getScene(): THREE.Scene {
+		return this.scene;
+	}
+
+	getCamera(): THREE.PerspectiveCamera {
+		return this.camera;
+	}
+
+	getControls(): OrbitControls {
+		return this.controls;
+	}
+
+	getRenderer(): THREE.WebGLRenderer {
+		return this.renderer;
+	}
+
+	getStats(): Stats {
+		return this.stats;
+	}
+
+	private disposeSceneResources(): void {
+		const disposedGeometries = new Set<THREE.BufferGeometry>();
+		const disposedMaterials = new Set<THREE.Material>();
+		const disposedTextures = new Set<THREE.Texture>();
+
+		this.scene.traverse((object) => {
+			const renderable = object as THREE.Object3D & {
+				geometry?: THREE.BufferGeometry;
+				material?: THREE.Material | THREE.Material[];
+			};
+
+			if (renderable.geometry && !disposedGeometries.has(renderable.geometry)) {
+				disposedGeometries.add(renderable.geometry);
+				renderable.geometry.dispose();
+			}
+
+			const materials = Array.isArray(renderable.material)
+				? renderable.material
+				: renderable.material
+					? [renderable.material]
+					: [];
+			for (const material of materials) {
+				if (disposedMaterials.has(material)) continue;
+				disposedMaterials.add(material);
+
+				for (const value of Object.values(material)) {
+					if (value instanceof THREE.Texture && !disposedTextures.has(value)) {
+						disposedTextures.add(value);
+						value.dispose();
+					}
+				}
+				material.dispose();
+			}
+		});
+
+		for (const texture of [this.scene.background, this.scene.environment]) {
+			if (texture instanceof THREE.Texture && !disposedTextures.has(texture)) {
+				disposedTextures.add(texture);
+				texture.dispose();
+			}
+		}
+	}
+
+	dispose(): void {
+		this.resizeObserver?.disconnect();
+		this.resizeObserver = undefined;
+		this.debounceResize.cancel();
+
+		this.disposeSceneResources();
+		this.scene.background = null;
+		this.scene.environment = null;
+		this.scene.clear();
+		this.camera.removeFromParent();
+		this.camera.clear();
+
+		this.controls.dispose();
+		this.stats.dispose();
+		this.renderer.renderLists.dispose();
+		this.renderer.dispose();
+
+		this.stats.dom.remove();
+		this.renderer.domElement.remove();
 	}
 }

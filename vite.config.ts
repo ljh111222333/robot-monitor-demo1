@@ -1,6 +1,9 @@
 import vue from '@vitejs/plugin-vue';
 import { defineConfig, loadEnv } from 'vite';
 import { resolve } from 'node:path';
+import Components from 'unplugin-vue-components/vite';
+import { ElementPlusResolver } from 'unplugin-vue-components/resolvers';
+import AutoImport from 'unplugin-auto-import/vite';
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
@@ -8,7 +11,6 @@ export default defineConfig(({ mode }) => {
 
 	return {
 		base: env.VITE_BASE_URL,
-		plugins: [vue()],
 		server: {
 			// 明确绑定 IPv4，避免 Windows 将 localhost 优先解析到不可用的 IPv6 ::1。
 			host: '127.0.0.1',
@@ -21,6 +23,25 @@ export default defineConfig(({ mode }) => {
 				'@': resolve(import.meta.dirname, './src'),
 			},
 		},
+		plugins: [
+			vue(),
+			AutoImport({
+				imports: [
+					'vue', //自动导入vue的相关函数，例如ref、reactive、toRef等
+					'pinia',
+				],
+			}),
+			// 使用 unplugin-vue-components
+			Components({
+				resolvers: [
+					ElementPlusResolver({
+						importStyle: 'sass',
+						// directives: true,
+						// version: "2.1.5",
+					}),
+				],
+			}),
+		],
 		build: {
 			// 启用代码分割
 			rolldownOptions: {
