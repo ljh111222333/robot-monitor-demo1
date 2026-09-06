@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import Stats from 'stats-gl';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import useSettingStore from '@/stores/settingStore';
+import { useSettingStore } from '@/stores/settingStore';
 import { debounce } from 'lodash-es';
 
 export interface SceneOptions {
@@ -16,6 +16,7 @@ export class Scene {
 	public readonly controls: OrbitControls;
 	private resizeObserver: ResizeObserver | undefined;
 	private settingStore: ReturnType<typeof useSettingStore>;
+	private readonly helperGroup = new THREE.Group();
 
 	constructor(
 		sceneContainer: HTMLElement,
@@ -123,13 +124,15 @@ export class Scene {
 		const grid = new THREE.Group();
 		this.scene.add(grid);
 		const gridHelper = new THREE.GridHelper(20, 20, 0x888888, 0x888888);
-		grid.add(gridHelper);
-
-		// 添加坐标轴
 		const axesHelper = new THREE.AxesHelper(5);
 		axesHelper.position.set(0, 0.001, 0);
-		grid.add(axesHelper);
-		grid.visible = false;
+
+		this.helperGroup.add(gridHelper, axesHelper);
+		this.helperGroup.visible = false;
+		this.scene.add(this.helperGroup);
+	}
+	setHelpersVisible(visible: boolean): void {
+		this.helperGroup.visible = visible;
 	}
 
 	// 尺寸更新

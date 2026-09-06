@@ -63,14 +63,18 @@
 				</div>
 
 				<div class="log-content">
-					<div ref="messageContainer" class="log-messages">
+					<div ref="messageContainer" class="log-messages" @scroll="onScroll">
 						<div
 							v-for="message in messages"
 							:key="message.id"
-							:class="message.type"
+							class="message-item"
 						>
-							{{ formatTime(message.timestamp) }}
-							{{ message.content }}
+							<div class="message-time">
+								{{ formatTime(message.timestamp) }}
+							</div>
+							<div class="message-content" :class="message.type">
+								{{ message.content }}
+							</div>
 						</div>
 					</div>
 				</div>
@@ -83,7 +87,32 @@
 import dayjs from 'dayjs';
 import { useLogStore } from '@/stores/logStore';
 const logStore = useLogStore();
-const messages = computed(() => logStore.messages);
+const messages = computed(() =>
+	logStore.messages.slice(0, pageParams.value.page * pageParams.value.size),
+);
+const hasMore = computed(
+	() =>
+		pageParams.value.page * pageParams.value.size < logStore.messages.length,
+);
+
+/**
+ * 本地翻页机制
+ */
+const pageParams = ref({
+	page: 1,
+	size: 200,
+});
+const onScroll = (event: Event) => {
+	const element = event.currentTarget as HTMLElement;
+	const remaining =
+		element.scrollHeight - element.scrollTop - element.clientHeight;
+
+	// 回顶时，就不再渲染1页之外的数据了
+	if (element.scrollTop <= element.clientHeight) pageParams.value.page = 1;
+
+	if (remaining > 80 || !hasMore.value) return;
+	pageParams.value.page += 1;
+};
 
 const formatTime = (timestamp: number) => {
 	return dayjs(timestamp).format('YYYY-MM-DD HH:mm:ss');
@@ -246,7 +275,7 @@ const extendFlag = ref(false);
 					}
 				}
 
-				.log-message {
+				.message-item {
 					display: flex;
 					align-items: flex-start;
 					margin-bottom: 8px;
@@ -273,7 +302,7 @@ const extendFlag = ref(false);
 						color: rgba(229, 231, 235, 0.95);
 
 						&.info {
-							color: rgb(87, 165, 255, 0.95);
+							color: rgba(87, 165, 255, 0.95);
 						}
 						&.success {
 							color: rgba(48, 233, 116, 0.95);

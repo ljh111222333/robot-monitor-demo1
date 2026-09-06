@@ -1,10 +1,10 @@
 import * as THREE from 'three';
 
 export interface BackgroundConfig {
-	color: THREE.Color;
+	color: string;
 }
 export const defauleBackground = (): BackgroundConfig => ({
-	color: new THREE.Color(0xefefef),
+	color: '#efefef',
 });
 
 export interface CameraConfig {

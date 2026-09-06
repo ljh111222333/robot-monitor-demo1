@@ -12,6 +12,7 @@ import gsap from 'gsap';
 import { useSettingStore } from '@/stores/settingStore';
 const settingStore = useSettingStore();
 import { useLogStore } from '@/stores/logStore';
+import { emitter, type ControlViewportEvent } from '@/events/eventBus';
 const logStore = useLogStore();
 
 const props = defineProps<{
@@ -61,6 +62,7 @@ onMounted(async () => {
 		logStore.add('success', '视野重置成功');
 		emit('ready');
 		animationFrameId = requestAnimationFrame(render);
+		emitter.on('conrol-viewport', emitHandler);
 	} catch (error) {
 		console.error(error);
 		emit('error', error instanceof Error ? error.message : String(error));
@@ -70,6 +72,7 @@ onMounted(async () => {
 onUnmounted(() => {
 	disposed = true;
 	cancelAnimationFrame(animationFrameId);
+	emitter.off('conrol-viewport', emitHandler);
 
 	robot?.dispose();
 	scene?.dispose();
@@ -77,37 +80,59 @@ onUnmounted(() => {
 	scene = null;
 });
 
+const emitHandler = (event: ControlViewportEvent): void => {
+	switch (event.e) {
+		case 'bgColorChange':
+			setBgColor(event.val);
+			break;
+		case 'openAxesHelper':
+			scene?.setHelpersVisible(event.flag);
+			break;
+	}
+};
+/**
+ * 控制方法------------------------------
+ */
+const moveCamera = (position: THREE.Vector3, target: THREE.Vector3): void => {
+	const camera = scene?.getCamera();
+	const controls = scene?.getControls();
+	if (camera && controls) {
+		gsap.killTweensOf(camera);
+		gsap.killTweensOf(controls);
+		controls.enabled = false;
+		gsap.to(camera.position, {
+			x: position.x,
+			y: position.y,
+			z: position.z,
+			duration: 1,
+			ease: 'power2.inOut',
+		});
+		gsap.to(controls.target, {
+			x: target.x,
+			y: target.y,
+			z: target.z,
+			duration: 1,
+			ease: 'power2.inOut',
+			onComplete: () => {
+				controls.enabled = true;
+			},
+		});
+	}
+};
+const setBgColor = (color: string): void => {
+	if (!scene) return;
+	const sceneInstance = scene.getScene();
+	if (sceneInstance.background instanceof THREE.Color) {
+		sceneInstance.background.set(color);
+		return;
+	}
+	sceneInstance.background = new THREE.Color(color);
+};
+
 /**
  * 暴露的方法-----------------------------------------------------
  */
-defineExpose({
-	moveCamera(position: THREE.Vector3, target: THREE.Vector3): void {
-		const camera = scene?.getCamera();
-		const controls = scene?.getControls();
-		if (camera && controls) {
-			gsap.killTweensOf(camera);
-			gsap.killTweensOf(controls);
-			controls.enabled = false;
-			gsap.to(camera.position, {
-				x: position.x,
-				y: position.y,
-				z: position.z,
-				duration: 1,
-				ease: 'power2.inOut',
-			});
-			gsap.to(controls.target, {
-				x: target.x,
-				y: target.y,
-				z: target.z,
-				duration: 1,
-				ease: 'power2.inOut',
-				onComplete: () => {
-					controls.enabled = true;
-				},
-			});
-		}
-	},
-});
+defineExpose({});
 </script>
 
 <style lang="scss" scoped>

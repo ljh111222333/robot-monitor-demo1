@@ -6,10 +6,6 @@ import ThreeViewport from '@/components/ThreeViewport.vue';
 import ControlPanel from '@/components/ControlPanel.vue';
 import LogPanel from '@/components/LogPanel.vue';
 
-const viewportRef = useTemplateRef<InstanceType<typeof ThreeViewport> | null>(
-	'viewportRef',
-);
-
 const sceneReady = ref(false);
 const initializationError = ref('');
 </script>
@@ -21,7 +17,7 @@ const initializationError = ref('');
 		@error="initializationError = $event"
 	/>
 
-	<ControlPanel :disabled="!sceneReady" />
+	<ControlPanel ref="controlPanelRef" :disabled="!sceneReady" />
 
 	<LogPanel />
 
