@@ -19,7 +19,9 @@ declare module 'vue' {
     ElCollapseItem: typeof import('element-plus/es')['ElCollapseItem']
     ElColorPicker: typeof import('element-plus/es')['ElColorPicker']
     ElCool: typeof import('element-plus/es')['ElCool']
+    ElOption: typeof import('element-plus/es')['ElOption']
     ElRow: typeof import('element-plus/es')['ElRow']
+    ElSelect: typeof import('element-plus/es')['ElSelect']
     LogPanel: typeof import('./src/components/LogPanel.vue')['default']
     ThreeViewport: typeof import('./src/components/ThreeViewport.vue')['default']
   }
