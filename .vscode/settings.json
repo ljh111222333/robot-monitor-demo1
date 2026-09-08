@@ -1,0 +1,34 @@
+{
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true,
+    "eslint.enable": true,
+    "eslint.validate": ["javascript", "javascriptreact", "typescript", "typescriptreact", "vue"],
+    "files.associations": {
+        "*.env": "env",
+        "*.env.*": "env"
+    },
+    "editor.tabSize": 4, //tab大小：4个空格
+    "editor.tabCompletion": "on", // 设置tab补全
+    "prettier.semi": true, //句尾不加分号
+    "prettier.printWidth": 120, //行宽
+    "prettier.singleQuote": true, // 使用单引号
+    "prettier.bracketSpacing": true,
+    "prettier.useTabs": true, //使用缩进
+    "prettier.tabWidth": 2, //缩进大小
+    "editor.wordWrap": "on",
+    "[javascript]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[typescript]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[javascriptreact]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[typescriptreact]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[vue]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    }
+}

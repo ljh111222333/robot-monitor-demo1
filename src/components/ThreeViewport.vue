@@ -154,6 +154,13 @@ const moveCamera = (position: THREE.Vector3, target: THREE.Vector3): void => {
 	controls.enabled = false;
 	controls.autoRotate = false;
 	controls.enableDamping = false;
+	console.log('[camera] 开始', {
+		起点极角Deg: Number(THREE.MathUtils.radToDeg(orbit.phi).toFixed(3)),
+		终点极角Deg: Number(THREE.MathUtils.radToDeg(nextOrbit.phi).toFixed(3)),
+		水平转角Deg: Number(THREE.MathUtils.radToDeg(thetaDelta).toFixed(3)),
+		Target需要移动: targetDistance > POSITION_EPSILON,
+		时长Sec: Number(duration.toFixed(3)),
+	});
 
 	/*
 	 * 关闭阻尼后调用 update，会消耗并清空残留的旋转增量。
@@ -188,23 +195,33 @@ const moveCamera = (position: THREE.Vector3, target: THREE.Vector3): void => {
 		onComplete: () => {
 			// 使用经过修正的球坐标终点，不再复制原始 position。
 			applyOrbit();
+
+			const beforeControlsUpdate = camera.position.clone();
 			controls.update();
+
+			console.log('[camera] 结束', {
+				相机终点误差: camera.position.distanceTo(endPosition),
+				Target终点误差: controls.target.distanceTo(nextTarget),
+				控件额外修正量: camera.position.distanceTo(beforeControlsUpdate),
+			});
+
 			restoreControls();
 		},
 		onInterrupt: restoreControls,
 	});
 
-	cameraTimeline
-		.to(
-			orbit,
-			{
-				radius: nextOrbit.radius,
-				phi: nextOrbit.phi,
-				theta: nextOrbit.theta,
-			},
-			0,
-		)
-		.to(
+	cameraTimeline.to(
+		orbit,
+		{
+			radius: nextOrbit.radius,
+			phi: nextOrbit.phi,
+			theta: nextOrbit.theta,
+		},
+		0,
+	);
+	if (targetDistance > POSITION_EPSILON) {
+		// 目标位置变化时，才需要动画
+		cameraTimeline.to(
 			controls.target,
 			{
 				x: nextTarget.x,
@@ -213,6 +230,7 @@ const moveCamera = (position: THREE.Vector3, target: THREE.Vector3): void => {
 			},
 			0,
 		);
+	}
 	cameraTimeline.play();
 };
 const setBgColor = (color: string): void => {

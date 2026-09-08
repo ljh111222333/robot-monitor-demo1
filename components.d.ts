@@ -22,6 +22,7 @@ declare module 'vue' {
     ElOption: typeof import('element-plus/es')['ElOption']
     ElRow: typeof import('element-plus/es')['ElRow']
     ElSelect: typeof import('element-plus/es')['ElSelect']
+    ElSwitch: typeof import('element-plus/es')['ElSwitch']
     LogPanel: typeof import('./src/components/LogPanel.vue')['default']
     ThreeViewport: typeof import('./src/components/ThreeViewport.vue')['default']
   }

@@ -1,7 +1,7 @@
 <template>
 	<div class="control-panel">
 		<!-- 主收缩器 -->
-		<el-collapse>
+		<el-collapse :model-value="['1']">
 			<el-collapse-item title="robot controler" name="1" :disabled>
 				<!-- 子收缩器 -->
 				<el-collapse v-model="activeNames" @change="handleChange">
@@ -20,6 +20,7 @@
 							</el-col>
 						</el-row>
 					</el-collapse-item>
+
 					<el-collapse-item title="camera控制" name="2">
 						<el-row class="controler-item">
 							<el-col class="item-label" :span="8">camera设置</el-col>
@@ -34,6 +35,30 @@
 								</el-select>
 							</el-col>
 						</el-row>
+					</el-collapse-item>
+
+					<el-collapse-item title="关节控制" name="3">
+						<el-row class="controler-item">
+							<el-col class="item-label" :span="8">实时关节模式</el-col>
+							<el-col class="item-value" :span="16">
+								<!-- <el-button :type="jointConfig.jointState === 'log' ? 'info' : 'primary'" @click="toggleJointState">{{
+									jointConfig.jointState === 'log' ? '切换为手动模式' : '切换为实时模式'
+								}}</el-button> -->
+								<el-switch
+									:model-value="jointConfig.jointMode"
+									class="ml-2"
+									inline-prompt
+									style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949"
+									active-text="实时模式"
+									inactive-text="手动模式"
+									active-value="log"
+									inactive-value="set"
+									:loading="jointConfig.modeChangeLoading"
+									@change="toggleJointState"
+								/>
+							</el-col>
+						</el-row>
+						<div class="joint-controls"></div>
 					</el-collapse-item>
 				</el-collapse>
 
@@ -53,6 +78,7 @@ import { useInitObj } from '@/hooks/useInitObj';
 import { useSettingStore } from '@/stores/settingStore';
 import type { ViewInType } from '@/events/eventBus';
 import type { CollapseModelValue, CheckboxValueType } from 'element-plus';
+import http from '@/utils/http';
 const settingStore = useSettingStore();
 
 const { disabled } = defineProps<{
@@ -62,7 +88,7 @@ const { disabled } = defineProps<{
 /**
  * 子收缩器
  */
-const activeNames = ref(['1', '2']);
+const activeNames = ref(['1', '2', '3']);
 const handleChange = (val: CollapseModelValue) => {
 	console.log(val);
 };
@@ -127,6 +153,64 @@ const viewMethodChange = (val: ViewInType) => {
 	});
 };
 
+/**
+ * 关节控制
+ */
+const { obj: jointConfig, reset: restJointConfig } = useInitObj<{
+	jointMode: 'log' | 'set';
+	modeChangeLoading: boolean;
+}>({
+	jointMode: 'log',
+	modeChangeLoading: false,
+});
+const toggleJointState = async () => {
+	console.log('toggleJointState', jointConfig.value.jointMode);
+	jointConfig.value.modeChangeLoading = true;
+	if (jointConfig.value.jointMode === 'log') {
+		ElMessageBox.confirm('切换为手动模式需要先关闭实时模式，是否继续？', '提示', {
+			confirmButtonText: '确定',
+			cancelButtonText: '取消',
+			type: 'warning',
+		})
+			.then(async () => {
+				try {
+					const res = await http.post('/api/joint/mode', {
+						jointState: 'set',
+					});
+					if (res.status !== 1000) throw new Error('mode change error');
+					ElMessage({
+						type: 'success',
+						message: '切换为手动模式成功',
+					});
+					jointConfig.value.jointMode = 'set';
+				} catch (error) {
+					console.error('mode change error', error);
+				} finally {
+					jointConfig.value.modeChangeLoading = false;
+				}
+			})
+			.catch(() => {
+				jointConfig.value.modeChangeLoading = false;
+			});
+	} else {
+		try {
+			const res = await http.post('/api/joint/mode', {
+				jointState: 'log',
+			});
+			if (res.status !== 1000) throw new Error('mode change error');
+
+			jointConfig.value.jointMode = 'log';
+			ElMessage({
+				type: 'success',
+				message: '切换为实时模式成功',
+			});
+		} catch (error) {
+			console.error('mode change error', error);
+		} finally {
+			jointConfig.value.modeChangeLoading = false;
+		}
+	}
+};
 /**
  * 独立按钮方法
  */

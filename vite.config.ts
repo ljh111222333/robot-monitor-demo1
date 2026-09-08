@@ -15,7 +15,13 @@ export default defineConfig(({ mode }) => {
 			// 明确绑定 IPv4，避免 Windows 将 localhost 优先解析到不可用的 IPv6 ::1。
 			host: '127.0.0.1',
 			port: 6600,
-			open: true,
+			open: false,
+			proxy: {
+				'/api': {
+					target: 'http://127.0.0.1:9900',
+					changeOrigin: true,
+				},
+			},
 		},
 		resolve: {
 			// 路径别名
@@ -30,6 +36,11 @@ export default defineConfig(({ mode }) => {
 					'vue', //自动导入vue的相关函数，例如ref、reactive、toRef等
 					'pinia',
 				],
+				resolvers: [
+					ElementPlusResolver({
+						importStyle: 'sass',
+					}),
+				],
 			}),
 			// 使用 unplugin-vue-components
 			Components({
@@ -37,7 +48,7 @@ export default defineConfig(({ mode }) => {
 					ElementPlusResolver({
 						importStyle: 'sass',
 						// directives: true,
-						// version: "2.1.5",
+						// version: '2.1.5',
 					}),
 				],
 			}),
@@ -64,10 +75,7 @@ export default defineConfig(({ mode }) => {
 					chunkFileNames: (chunkInfo) => {
 						const facadeModuleId = chunkInfo.facadeModuleId;
 						if (facadeModuleId) {
-							const fileName = facadeModuleId
-								.split('/')
-								.pop()
-								?.replace('.ts', '');
+							const fileName = facadeModuleId.split('/').pop()?.replace('.ts', '');
 							return `js/${fileName}-[hash].js`;
 						}
 						return 'js/[name]-[hash].js';
@@ -102,6 +110,7 @@ export default defineConfig(({ mode }) => {
 			preprocessorOptions: {
 				scss: {
 					charset: false,
+					additionalData: `@use "@/styles/element/index.scss" as *;`,
 				},
 			},
 		},
