@@ -1,6 +1,7 @@
+export type SuportLogType = 'info' | 'error' | 'warning' | 'success';
 export interface LogMessage {
 	id: string;
 	timestamp: number;
-	type: 'info' | 'success' | 'warning' | 'error';
+	type: SuportLogType;
 	content: string;
 }
