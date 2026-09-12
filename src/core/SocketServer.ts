@@ -7,7 +7,7 @@ export interface WebSocketMessage {
 
 export interface ClientInfo {
 	id?: number;
-	type: 'simulator';
+	type: string;
 	name: string;
 	connectedAt?: Date;
 	lastHeartbeat?: number;
@@ -78,18 +78,14 @@ export class SocketServer<I extends ClientInfo = ClientInfo> {
 		return new Promise((resolve, reject) => {
 			try {
 				this.ws = new WebSocket(this.url);
+				this.emit('connecting', { url: this.url });
+				console.log('WebSocket连接建立中...', this.url);
 
 				this.ws.onopen = () => {
 					this.log.success('WebSocket连接已建立');
 					console.log('WebSocket连接已建立');
 					this.isConnected = true;
 					this.resetReconnectState();
-
-					// 注册客户端
-					this.register();
-
-					// 启动心跳
-					this.startHeartbeat();
 
 					this.emit('connected', { clientInfo: this.clientInfo });
 					resolve();
@@ -109,7 +105,6 @@ export class SocketServer<I extends ClientInfo = ClientInfo> {
 					this.log.warning(`WebSocket连接断开: ${event.code} ${event.reason}`);
 					console.log('WebSocket连接已关闭:', event.code, event.reason);
 					this.isConnected = false;
-					this.stopHeartbeat();
 
 					// 重置重连标记，确保失败后可以继续下一次重连尝试
 					this.isReconnecting = false;
@@ -122,7 +117,7 @@ export class SocketServer<I extends ClientInfo = ClientInfo> {
 					} else if (this.reconnectAttempts >= this.options?.maxReconnectAttempts!) {
 						this.log.error('已达到最大重连次数，停止重连');
 						console.error('已达到最大重连次数，停止重连');
-						this.emit('reconnect_failed', { attempts: this.reconnectAttempts });
+						this.emit('reconnect_failed', { attempts: this.reconnectAttempts, reason: '已达到最大重连次数' });
 					}
 				};
 
@@ -148,7 +143,6 @@ export class SocketServer<I extends ClientInfo = ClientInfo> {
 
 	// 清理连接
 	private cleanupConnection(): void {
-		this.stopHeartbeat();
 		this.isConnected = false;
 
 		if (this.ws) {
@@ -178,24 +172,8 @@ export class SocketServer<I extends ClientInfo = ClientInfo> {
 		}
 	}
 
-	// 注册客户端
-	private register(): void {
-		if (!this.clientInfo) return;
-
-		this.send('register', {
-			type: this.clientInfo.type,
-			name: this.clientInfo.name,
-		});
-	}
-
 	// 处理接收到的消息
 	private handleMessage(message: WebSocketMessage): void {
-		if (message.type !== 'robot_state_update') {
-			// 对非状态更新消息进行日志记录
-			this.log.info(`收到WebSocket消息: ${message.type}`);
-		}
-		console.log('收到WebSocket消息:', message.type);
-
 		switch (message.type) {
 			case 'connection':
 				if (this.clientInfo) {
@@ -208,10 +186,6 @@ export class SocketServer<I extends ClientInfo = ClientInfo> {
 				console.log('客户端注册成功:', message.data);
 				break;
 
-			case 'heartbeat_response':
-				// 心跳响应，无需特殊处理
-				return;
-
 			case 'error':
 				this.log.error(`服务器错误: ${JSON.stringify(message.data)}`);
 				console.error('服务器错误:', message.data);
@@ -219,26 +193,7 @@ export class SocketServer<I extends ClientInfo = ClientInfo> {
 		}
 
 		// 触发对应的事件处理器
-		this.emit(message.type, message.data);
-	}
-
-	// 启动心跳
-	private startHeartbeat(): void {
-		this.stopHeartbeat();
-
-		this.heartbeatInterval = window.setInterval(() => {
-			if (this.isConnected) {
-				this.send('heartbeat', { timestamp: Date.now() });
-			}
-		}, 15000); // 每15秒发送一次心跳
-	}
-
-	// 停止心跳
-	private stopHeartbeat(): void {
-		if (this.heartbeatInterval) {
-			clearInterval(this.heartbeatInterval);
-			this.heartbeatInterval = null;
-		}
+		this.emit('message', message);
 	}
 
 	// 尝试重连
@@ -282,6 +237,15 @@ export class SocketServer<I extends ClientInfo = ClientInfo> {
 		};
 	}
 
+	// 单次触发
+	once(event: string, handler: WebSocketEventHandler): void {
+		const onceHandler = (data: any) => {
+			handler(data);
+			this.off(event, onceHandler);
+		};
+		this.on(event, onceHandler);
+	}
+
 	// 移除事件监听
 	off(event: string, handler?: WebSocketEventHandler): void {
 		if (!this.eventHandlers.has(event)) return;
@@ -320,20 +284,6 @@ export class SocketServer<I extends ClientInfo = ClientInfo> {
 	// 获取客户端信息；首次 connect 前返回 null。
 	getClientInfo(): I | null {
 		return this.clientInfo ? { ...this.clientInfo } : null;
-	}
-
-	// 请求测试动作序列
-	requestTestSequence(): void {
-		this.send('test_sequence_request', {
-			clientId: this.clientInfo?.id,
-		});
-	}
-
-	// 停止测试动作序列
-	stopTestSequence(): void {
-		this.send('stop_sequence_request', {
-			clientId: this.clientInfo?.id,
-		});
 	}
 
 	// 手动重连（重置重连计数）

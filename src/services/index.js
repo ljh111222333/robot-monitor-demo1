@@ -2,14 +2,7 @@ import cors from 'cors';
 import express from 'express';
 import { createServer } from 'node:http';
 import { fileURLToPath } from 'node:url';
-import {
-	getClientSummaries,
-	getDeviceSnapshot,
-	getDeviceSnapshots,
-	getJointDefinitions,
-	getServerSnapshot,
-	setSimulationFrequencyHz,
-} from './store.js';
+import { getDeviceSnapshots } from './store.js';
 import { createWebSocketService } from './websocket.js';
 
 const DEFAULT_PORT = 9900;
@@ -29,6 +22,24 @@ app.post('/api/joint/mode', (_request, response) => {
 			mode: _request.body.mode === 'set' ? 'log' : 'set',
 		},
 		message: 'mode change success',
+	});
+});
+
+app.get('/api/robot/list', (request, response) => {
+	// 设备共用监控客户端入口；连接后仍通过 subscribe_device + deviceId 选择数据源。
+	const protocol = request.protocol === 'https' ? 'wss' : 'ws';
+	const connectPath = `${protocol}://${request.get('host')}/?role=client`;
+
+	console.log('connectPath', connectPath);
+
+	response.json({
+		status: 1000,
+		data: {
+			robots: getDeviceSnapshots().map((device) => ({
+				...device,
+				connectPath,
+			})),
+		},
 	});
 });
 

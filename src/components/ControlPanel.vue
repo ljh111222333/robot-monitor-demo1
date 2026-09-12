@@ -58,7 +58,15 @@
 								/>
 							</el-col>
 						</el-row>
-						<div class="joint-controls"></div>
+						<template v-if="jointConfig.jointMode === 'log'">
+							<el-row class="controler-item joint-connection-status">
+								<el-col class="item-label" :span="8">连接状态</el-col>
+								<el-col class="item-value" :span="16"> {{ jointConnectionStatus }}</el-col>
+							</el-row>
+						</template>
+						<template v-else>
+							<el-row class="controler-item joint-controls"></el-row>
+						</template>
 					</el-collapse-item>
 				</el-collapse>
 
@@ -74,17 +82,42 @@
 
 <script setup lang="ts">
 import { emitter } from '@/events/eventBus';
-import { useInitObj } from '@/hooks/useInitObj';
-import { useSettingStore } from '@/stores/settingStore';
 import type { ViewInType } from '@/events/eventBus';
 import type { CollapseModelValue, CheckboxValueType } from 'element-plus';
 import http from '@/utils/http';
+import type { RobotInfo } from '@/types/robot.d.ts';
+
+import { useInitObj } from '@/hooks/useInitObj';
+import { useSettingStore } from '@/stores/settingStore';
+import { useWebSocketStore } from '@/stores/webSocket';
+import { useLogStore } from '@/stores/logStore';
+const logStore = useLogStore();
+const webSocketStore = useWebSocketStore();
 const settingStore = useSettingStore();
 
 const { disabled } = defineProps<{
 	disabled: boolean;
 }>();
 
+/**
+ * 当前设备相关信息-----------------------------------------------
+ */
+// 连接状态转文字
+const jointConnectionStatus = computed(() => {
+	switch (webSocketStore.loadintStatus) {
+		case 0:
+			return '连接失败';
+		case 1:
+			return '连接成功';
+		case 2:
+			return '正在建立连接...';
+
+		default:
+			return '未连接';
+	}
+});
+// 当前设备信息
+const currentRobot = inject<ComputedRef<RobotInfo | null>>('currentRobot');
 /**
  * 子收缩器
  */
@@ -160,12 +193,14 @@ const { obj: jointConfig, reset: restJointConfig } = useInitObj<{
 	jointMode: 'log' | 'set';
 	modeChangeLoading: boolean;
 }>({
-	jointMode: 'log',
+	jointMode: 'set',
 	modeChangeLoading: false,
 });
 const toggleJointState = async () => {
 	console.log('toggleJointState', jointConfig.value.jointMode);
 	jointConfig.value.modeChangeLoading = true;
+	const ws = webSocketStore.getWsSocket();
+
 	if (jointConfig.value.jointMode === 'log') {
 		ElMessageBox.confirm('切换为手动模式需要先关闭实时模式，是否继续？', '提示', {
 			confirmButtonText: '确定',
@@ -178,6 +213,8 @@ const toggleJointState = async () => {
 						jointState: 'set',
 					});
 					if (res.status !== 1000) throw new Error('mode change error');
+
+					ws?.send('unsubscribe_device', {});
 					ElMessage({
 						type: 'success',
 						message: '切换为手动模式成功',
@@ -193,11 +230,57 @@ const toggleJointState = async () => {
 				jointConfig.value.modeChangeLoading = false;
 			});
 	} else {
+		let connectingTimeout: ReturnType<typeof setTimeout> | undefined;
 		try {
+			const robot = currentRobot?.value;
+			if (!robot) {
+				ElMessage.warning('当前没有可连接的设备');
+				return;
+			}
 			const res = await http.post('/api/joint/mode', {
-				jointState: 'log',
+				mode: 'log',
 			});
 			if (res.status !== 1000) throw new Error('mode change error');
+
+			jointConfig.value.modeChangeLoading = true;
+
+			const timeoutPromise = new Promise<never>((_, reject) => {
+				connectingTimeout = setTimeout(() => {
+					// 拒绝正在被等待的 Promise，而不是在定时器中直接 throw。
+					reject(new Error('连接超时，请检查设备连接状态'));
+				}, 5000);
+			});
+
+			await Promise.race([
+				ws?.connect(robot.connectPath || '', {
+					type: robot.source || '',
+					name: robot.name || '',
+				}),
+				timeoutPromise,
+			]);
+
+			// 连接已成功，连接超时计时不应继续覆盖后面的 HTTP 请求。
+			clearTimeout(connectingTimeout);
+			connectingTimeout = undefined;
+
+			// 发布订阅设备
+			ws?.send('subscribe_device', {
+				deviceId: robot.id,
+			});
+
+			ws?.on('message', (message) => {
+				if (message.type !== 'joint_state') {
+					// 对非状态更新消息进行日志记录
+					logStore.add('info', `收到WebSocket消息: ${message.type}`);
+				}
+				console.log('收到WebSocket消息:', message);
+				switch (message.type) {
+					case 'joint_state':
+						break;
+					default:
+						break;
+				}
+			});
 
 			jointConfig.value.jointMode = 'log';
 			ElMessage({
@@ -206,7 +289,10 @@ const toggleJointState = async () => {
 			});
 		} catch (error) {
 			console.error('mode change error', error);
+			ElMessage.error(error instanceof Error ? error.message : '切换为实时模式失败');
 		} finally {
+			clearTimeout(connectingTimeout);
+			webSocketStore.closeConnectingLoading();
 			jointConfig.value.modeChangeLoading = false;
 		}
 	}

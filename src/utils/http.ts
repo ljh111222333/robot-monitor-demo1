@@ -7,7 +7,7 @@ const http = axios.create({
 
 http.interceptors.response.use(
 	(response: AxiosResponse) => {
-		console.log('response', response);
+		// console.log('response', response);
 		if (response.data.status !== 1000) {
 			ElMessage({
 				type: 'error',
