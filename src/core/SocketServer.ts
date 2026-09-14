@@ -276,6 +276,11 @@ export class SocketServer<I extends ClientInfo = ClientInfo> {
 		}
 	}
 
+	// 清理全部事件
+	clearAllEvents(): void {
+		this.eventHandlers.clear();
+	}
+
 	// 获取连接状态
 	isWebSocketConnected(): boolean {
 		return this.isConnected;
