@@ -54,6 +54,10 @@ const emitHandler = (event: ControlViewportEvent): void => {
 		case 'logPosition':
 			logCameraState();
 			break;
+
+		case 'robot-joint-state':
+			setRobotJointState(event.val);
+			break;
 	}
 };
 /**
@@ -298,7 +302,11 @@ const logCameraState = (): void => {
 	);
 	//   logStore.add("info", "当前控制器状态" + JSON.stringify(controlPositionInfo));
 };
+const setRobotJointState = (val: any): void => {
+	console.log('机器人关节状态', val);
 
+	robot?.setJointPositions(val.positions);
+};
 /**
  * 生命周期------------------------------------------------
  */

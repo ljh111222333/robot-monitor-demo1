@@ -196,6 +196,7 @@ const { obj: jointConfig, reset: restJointConfig } = useInitObj<{
 	jointMode: 'set',
 	modeChangeLoading: false,
 });
+const wsStopActions = new Map<string, () => void>();
 const toggleJointState = async () => {
 	console.log('toggleJointState', jointConfig.value.jointMode);
 	jointConfig.value.modeChangeLoading = true;
@@ -264,23 +265,30 @@ const toggleJointState = async () => {
 			connectingTimeout = undefined;
 
 			// 发布订阅设备
-			ws?.send('subscribe_device', {
+			ws!.send('subscribe_device', {
 				deviceId: robot.id,
 			});
 
-			ws?.on('message', (message) => {
-				if (message.type !== 'joint_state') {
-					// 对非状态更新消息进行日志记录
-					logStore.add('info', `收到WebSocket消息: ${message.type}`);
-				}
-				console.log('收到WebSocket消息:', message);
-				switch (message.type) {
-					case 'joint_state':
-						break;
-					default:
-						break;
-				}
-			});
+			wsStopActions.set(
+				'onMessage',
+				ws!.on('message', (message) => {
+					if (message.type !== 'joint_state') {
+						// 对非状态更新消息进行日志记录
+						logStore.add('info', `收到WebSocket消息: ${message.type}`);
+					}
+					console.log('收到WebSocket消息:', message);
+					switch (message.type) {
+						case 'joint_state':
+							emitter.emit('conrol-viewport', {
+								e: 'robot-joint-state',
+								val: message.data,
+							});
+							break;
+						default:
+							break;
+					}
+				}),
+			);
 
 			jointConfig.value.jointMode = 'log';
 			ElMessage({
@@ -309,6 +317,21 @@ const resetAll = () => {
 	restSceneConifg();
 	restCaremaConifg();
 };
+
+/**
+ * 生命周期--------------------------------------------------------
+ */
+onUnmounted(() => {
+	emitter.off('conrol-viewport');
+
+	wsStopActions.forEach((stopAction) => {
+		stopAction();
+	});
+	const ws = webSocketStore.getWsSocket();
+	if (ws) {
+		ws.disconnect();
+	}
+});
 </script>
 
 <style lang="scss" scoped>
